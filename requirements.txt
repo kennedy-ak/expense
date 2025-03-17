@@ -7,3 +7,4 @@ pandas
 SQLAlchemy
 langchain-groq
 datetime
+gunicorn
