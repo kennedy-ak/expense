@@ -8,3 +8,4 @@ SQLAlchemy
 langchain-groq
 datetime
 gunicorn
+langchain
