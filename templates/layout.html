@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Expense Tracker</title>
+    <title>FinInsight - Financial Tracker</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -15,12 +15,13 @@
         .sidebar {
             min-height: calc(100vh - 56px);
             background-color: #f8f9fa;
+            padding-top: 1rem;
         }
         .sidebar-sticky {
             position: sticky;
             top: 0;
             height: calc(100vh - 56px);
-            padding-top: 1rem;
+            padding-top: 0.5rem;
             overflow-x: hidden;
             overflow-y: auto;
         }
@@ -43,6 +44,71 @@
         .transaction-negative {
             color: #dc3545;
         }
+        
+        /* Mobile sidebar styles */
+        @media (max-width: 767.98px) {
+            .sidebar {
+                position: fixed;
+                top: 56px;
+                bottom: 0;
+                left: 0;
+                z-index: 1000;
+                width: 240px;
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .content-wrapper {
+                transition: margin-left 0.3s ease-in-out;
+            }
+            .content-wrapper.sidebar-open {
+                margin-left: 240px;
+            }
+            /* Overlay when sidebar is open */
+            .sidebar-backdrop {
+                position: fixed;
+                top: 56px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 999;
+                display: none;
+            }
+            .sidebar-backdrop.show {
+                display: block;
+            }
+        }
+
+        /* Active link styling */
+        .nav-link.active {
+            color: #007bff;
+            background-color: rgba(0, 123, 255, 0.1);
+            border-left: 3px solid #007bff;
+            padding-left: calc(0.5rem - 3px);
+        }
+        .nav-link {
+            padding: 0.5rem 1rem;
+            border-left: 3px solid transparent;
+        }
+        .nav-link:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Sidebar toggle button */
+        .sidebar-toggle {
+            padding: 0.25rem 0.75rem;
+            font-size: 1.25rem;
+            color: white;
+            background: none;
+            border: none;
+        }
+        .sidebar-toggle:focus {
+            outline: none;
+        }
     </style>
 </head>
 <body>
@@ -50,6 +116,11 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
+            <!-- Sidebar toggle button for mobile -->
+            <button class="sidebar-toggle d-md-none me-2" type="button" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
                 <i class="fas fa-wallet me-2"></i>FinInsight
             </a>
@@ -73,10 +144,13 @@
         </div>
     </nav>
 
+    <!-- Sidebar backdrop overlay for mobile -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <div class="col-md-3 col-lg-2 d-md-block sidebar" id="sidebar">
                 <div class="sidebar-sticky">
                     <ul class="nav flex-column">
                         <li class="nav-item">
@@ -110,11 +184,17 @@
                             </a>
                         </li>
                     </ul>
+                    
+                    <!-- Version info in sidebar -->
+                    <div class="mt-5 pt-3 border-top text-center text-muted small">
+                        <p class="mb-1">FinInsight v1.0</p>
+                        <p><i class="fas fa-brain me-1"></i> AI-Powered Insights</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Main content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 content">
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 content content-wrapper" id="content">
                 <!-- Flash messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
@@ -154,6 +234,56 @@
 
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS for sidebar toggle -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('content');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            
+            // Toggle sidebar on button click
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    sidebar.classList.toggle('show');
+                    content.classList.toggle('sidebar-open');
+                    backdrop.classList.toggle('show');
+                });
+            }
+            
+            // Close sidebar when clicking on backdrop
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    sidebar.classList.remove('show');
+                    content.classList.remove('sidebar-open');
+                    backdrop.classList.remove('show');
+                });
+            }
+            
+            // Close sidebar when clicking on a nav link on mobile
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth < 768) {
+                        sidebar.classList.remove('show');
+                        content.classList.remove('sidebar-open');
+                        backdrop.classList.remove('show');
+                    }
+                });
+            });
+            
+            // Handle resize events
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 768) {
+                    sidebar.classList.remove('show');
+                    content.classList.remove('sidebar-open');
+                    backdrop.classList.remove('show');
+                }
+            });
+        });
+    </script>
+    
     <!-- Custom JS for the page -->
     {% block scripts %}{% endblock %}
 </body>
