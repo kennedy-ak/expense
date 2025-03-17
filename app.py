@@ -250,8 +250,54 @@ def index():
         
 #     return render_template('register.html')
 
+# @app.route('/register', methods=['GET', 'POST'])
+# def register():
+#     if request.method == 'POST':
+#         username = request.form.get('username')
+#         name = request.form.get('name')
+#         email = request.form.get('email')
+#         password = request.form.get('password')
+#         confirm_password = request.form.get('confirm_password')
+        
+#         # Validation
+#         if User.query.filter_by(username=username).first():
+#             flash('Username already exists', 'danger')
+#             return redirect(url_for('register'))
+            
+#         if User.query.filter_by(email=email).first():
+#             flash('Email already registered', 'danger')
+#             return redirect(url_for('register'))
+            
+#         if password != confirm_password:
+#             flash('Passwords do not match', 'danger')
+#             return redirect(url_for('register'))
+        
+#         # Create new user with the updated method parameter
+#         # Use 'pbkdf2:sha256' instead of 'sha256'
+#         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+#         new_user = User(username=username, name=name, email=email, password=hashed_password)
+#         db.session.add(new_user)
+#         db.session.commit()
+        
+#         # Create default categories for new user
+#         create_default_categories(new_user.id)
+        
+#         # Create a default cash account
+#         cash_account = Account(name='Cash', balance=0.0, user_id=new_user.id)
+#         db.session.add(cash_account)
+#         db.session.commit()
+        
+#         flash('Registration successful! You can now login.', 'success')
+#         return redirect(url_for('login'))
+        
+#     return render_template('register.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # If user is already logged in, redirect to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+        
     if request.method == 'POST':
         username = request.form.get('username')
         name = request.form.get('name')
@@ -273,7 +319,6 @@ def register():
             return redirect(url_for('register'))
         
         # Create new user with the updated method parameter
-        # Use 'pbkdf2:sha256' instead of 'sha256'
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
         new_user = User(username=username, name=name, email=email, password=hashed_password)
         db.session.add(new_user)
@@ -288,12 +333,17 @@ def register():
         db.session.commit()
         
         flash('Registration successful! You can now login.', 'success')
+        # Redirect to login page instead of letting it proceed to the next page
         return redirect(url_for('login'))
         
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # If user is already logged in, redirect to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -306,7 +356,28 @@ def login():
             return redirect(url_for('login'))
             
         login_user(user, remember=remember)
+        next_page = request.args.get('next')
+        if next_page:
+            return redirect(next_page)
         return redirect(url_for('dashboard'))
+        
+    return render_template('login.html')
+
+# @app.route('/login', methods=['GET', 'POST'])
+# def login():
+#     if request.method == 'POST':
+#         username = request.form.get('username')
+#         password = request.form.get('password')
+#         remember = True if request.form.get('remember') else False
+        
+#         user = User.query.filter_by(username=username).first()
+        
+#         if not user or not check_password_hash(user.password, password):
+#             flash('Please check your login details and try again.', 'danger')
+#             return redirect(url_for('login'))
+            
+#         login_user(user, remember=remember)
+#         return redirect(url_for('dashboard'))
         
     return render_template('login.html')
 
