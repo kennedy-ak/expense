@@ -1,0 +1,236 @@
+<!-- templates/dashboard.html -->
+{% extends "layout.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Dashboard</h1>
+    <span class="badge bg-secondary">FinInsight v1.0</span>
+</div>
+
+<!-- Account Balance Summary -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Account Balances</h5>
+                <a href="{{ url_for('accounts') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-cog me-1"></i> Manage Accounts
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Account</th>
+                                        <th class="text-end">Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for account in accounts %}
+                                    <tr>
+                                        <td>{{ account.name }}</td>
+                                        <td class="text-end {% if account.balance > 0 %}text-success{% elif account.balance < 0 %}text-danger{% endif %}">
+                                            ${{ account.balance|round(2) }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <th>Total</th>
+                                        <th class="text-end {% if total_balance > 0 %}text-success{% elif total_balance < 0 %}text-danger{% endif %}">
+                                            ${{ total_balance|round(2) }}
+                                        </th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {% if accounts %}
+                        <div style="height: 300px;">
+                            <canvas id="accountChart"></canvas>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i> No accounts found. Add your first account to get started.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions and Expense Summary -->
+<div class="row">
+    <!-- Recent Transactions -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Transactions</h5>
+                <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-list me-1"></i> View All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_transactions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Account</th>
+                                <th>Category</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in recent_transactions %}
+                            <tr>
+                                <td>{{ transaction.date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ transaction.description }}</td>
+                                <td>{{ transaction.account.name }}</td>
+                                <td>{{ transaction.category.name }}</td>
+                                <td class="text-end {% if transaction.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if transaction.type == 'income' %}+{% else %}-{% endif %}
+                                    ${{ transaction.amount|round(2) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i> No transactions found. Add your first transaction to get started.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Expense Summary -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Expense Summary</h5>
+                <a href="{{ url_for('report') }}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-chart-bar me-1"></i> Full Reports
+                </a>
+            </div>
+            <div class="card-body">
+                {% if expense_labels and expense_values %}
+                <div style="height: 300px;">
+                    <canvas id="expenseChart"></canvas>
+                </div>
+                {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i> No expense data available yet. Start recording your expenses to see insights.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer with version -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="text-center text-muted small">
+            <p>
+                <i class="fas fa-code me-1"></i> FinInsight Version 1.0 
+                <span class="mx-2">|</span> 
+                <i class="fas fa-brain me-1"></i> AI-Powered Financial Insights
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Account balance chart
+        {% if accounts %}
+        const accountLabels = {{ account_labels|safe }};
+        const accountValues = {{ account_values|safe }};
+        
+        if (document.getElementById('accountChart')) {
+            new Chart(document.getElementById('accountChart'), {
+                type: 'pie',
+                data: {
+                    labels: accountLabels,
+                    datasets: [{
+                        data: accountValues,
+                        backgroundColor: [
+                            '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+                            '#6f42c1', '#5a5c69', '#20c9a6', '#fd7e14', '#6610f2'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Balance Distribution'
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+
+        // Expense summary chart
+        {% if expense_labels and expense_values %}
+        const expenseLabels = {{ expense_labels|safe }};
+        const expenseValues = {{ expense_values|safe }};
+        
+        if (document.getElementById('expenseChart')) {
+            new Chart(document.getElementById('expenseChart'), {
+                type: 'bar',
+                data: {
+                    labels: expenseLabels,
+                    datasets: [{
+                        label: 'Expenses',
+                        data: expenseValues,
+                        backgroundColor: '#e74a3b',
+                        borderColor: '#e74a3b',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Expenses by Category'
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+    });
+</script>
+{% endblock %}

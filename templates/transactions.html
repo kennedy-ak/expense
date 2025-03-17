@@ -1,0 +1,221 @@
+<!-- templates/transactions.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Transaction History</h1>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">All Transactions</h5>
+        <a href="{{ url_for('add_transaction') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle me-1"></i> Add Transaction
+        </a>
+    </div>
+    <div class="card-body">
+        <!-- Filter options -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="accordion" id="filterAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="filterHeading">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                                <i class="fas fa-filter me-2"></i> Filter Options
+                            </button>
+                        </h2>
+                        <div id="filterCollapse" class="accordion-collapse collapse show" aria-labelledby="filterHeading">
+                            <div class="accordion-body">
+                                <form id="filterForm">
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Transaction Type</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="typeIncome" checked>
+                                                <label class="form-check-label" for="typeIncome">Income</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="typeExpense" checked>
+                                                <label class="form-check-label" for="typeExpense">Expense</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Accounts</label>
+                                            <div class="overflow-auto" style="max-height: 150px;">
+                                                {% for account in accounts %}
+                                                <div class="form-check">
+                                                    <input class="form-check-input account-filter" type="checkbox" id="account-{{ account.id }}" value="{{ account.id }}" checked>
+                                                    <label class="form-check-label" for="account-{{ account.id }}">{{ account.name }}</label>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Categories</label>
+                                            <div class="overflow-auto" style="max-height: 150px;">
+                                                {% for category in categories %}
+                                                <div class="form-check">
+                                                    <input class="form-check-input category-filter" type="checkbox" id="category-{{ category.id }}" value="{{ category.id }}" checked>
+                                                    <label class="form-check-label" for="category-{{ category.id }}">{{ category.name }}</label>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label">Date Range</label>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text">From</span>
+                                                <input type="date" class="form-control" id="dateFrom">
+                                            </div>
+                                            <div class="input-group">
+                                                <span class="input-group-text">To</span>
+                                                <input type="date" class="form-control" id="dateTo">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <button type="button" id="resetFilters" class="btn btn-outline-secondary me-2">Reset Filters</button>
+                                        <button type="button" id="applyFilters" class="btn btn-primary">Apply Filters</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions table -->
+        {% if transactions %}
+        <div class="table-responsive">
+            <table class="table table-hover" id="transactionsTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Account</th>
+                        <th>Category</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr class="transaction-row" 
+                        data-type="{{ transaction.type }}"
+                        data-account="{{ transaction.account_id }}"
+                        data-category="{{ transaction.category_id }}"
+                        data-date="{{ transaction.date }}">
+                        <td>{{ transaction.date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if transaction.description %}
+                            {{ transaction.description }}
+                            {% else %}
+                            <span class="text-muted fst-italic">No description</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ transaction.account.name }}</td>
+                        <td>{{ transaction.category.name }}</td>
+                        <td class="text-end {% if transaction.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                            {% if transaction.type == 'income' %}+{% else %}-{% endif %}
+                            ${{ transaction.amount|round(2) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> No transactions found. Add your first transaction to get started.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const typeIncome = document.getElementById('typeIncome');
+    const typeExpense = document.getElementById('typeExpense');
+    const accountFilters = document.querySelectorAll('.account-filter');
+    const categoryFilters = document.querySelectorAll('.category-filter');
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    const resetFilters = document.getElementById('resetFilters');
+    const applyFilters = document.getElementById('applyFilters');
+    const transactionRows = document.querySelectorAll('.transaction-row');
+
+    // Apply filters function
+    function applyFilterOptions() {
+        const selectedAccounts = Array.from(accountFilters)
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.value);
+            
+        const selectedCategories = Array.from(categoryFilters)
+            .filter(checkbox => checkbox.checked)
+            .map(checkbox => checkbox.value);
+            
+        const fromDate = dateFrom.value ? new Date(dateFrom.value) : null;
+        const toDate = dateTo.value ? new Date(dateTo.value) : null;
+
+        transactionRows.forEach(row => {
+            const rowType = row.dataset.type;
+            const rowAccount = row.dataset.account;
+            const rowCategory = row.dataset.category;
+            const rowDate = new Date(row.dataset.date);
+            
+            // Check type filter
+            const typeMatch = (rowType === 'income' && typeIncome.checked) || 
+                             (rowType === 'expense' && typeExpense.checked);
+                             
+            // Check account filter
+            const accountMatch = selectedAccounts.includes(rowAccount);
+            
+            // Check category filter
+            const categoryMatch = selectedCategories.includes(rowCategory);
+            
+            // Check date filter
+            let dateMatch = true;
+            if (fromDate && toDate) {
+                dateMatch = rowDate >= fromDate && rowDate <= toDate;
+            } else if (fromDate) {
+                dateMatch = rowDate >= fromDate;
+            } else if (toDate) {
+                dateMatch = rowDate <= toDate;
+            }
+            
+            // Show or hide row based on all filters
+            if (typeMatch && accountMatch && categoryMatch && dateMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    // Reset filters
+    resetFilters.addEventListener('click', function() {
+        typeIncome.checked = true;
+        typeExpense.checked = true;
+        
+        accountFilters.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        
+        categoryFilters.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        
+        dateFrom.value = '';
+        dateTo.value = '';
+        
+        // Show all rows
+        transactionRows.forEach(row => {
+            row.style.display = '';
+        });
+    });
+    
+    // Apply filters
+    applyFilters.addEventListener('click', applyFilterOptions);
+});
+</script>
+{% endblock %}

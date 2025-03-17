@@ -1,0 +1,306 @@
+<!-- templates/report.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Financial Reports</h1>
+
+{% if financial_insights %}
+<!-- AI-Generated Financial Insights -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-robot me-2"></i> AI Financial Insights</h5>
+                <span class="badge bg-primary">Powered by Groq</span>
+            </div>
+            <div class="card-body">
+                <div class="ai-insights">
+                    {{ financial_insights|safe|nl2br }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Monthly Income vs Expenses -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Monthly Income vs Expenses</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="incomeVsExpenseChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Expense Breakdown -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Monthly Expense Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-end mb-3">
+                    <select id="monthSelector" class="form-select" style="width: auto;">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <canvas id="expenseBreakdownChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Spending Trend by Category -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Spending Trend by Category</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-end mb-3">
+                    <select id="categorySelector" class="form-select" style="width: auto;">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <canvas id="categoryTrendChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get data from the server
+    const reportData = {{ report_data|safe }};
+    const incomeVsExpense = {{ income_vs_expense|safe }};
+    
+    // Set up color palette
+    const colors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+        '#6f42c1', '#5a5c69', '#20c9a6', '#fd7e14', '#6610f2',
+        '#3c6382', '#38ada9', '#78e08f', '#e55039', '#fa983a',
+        '#1e3799', '#9980FA', '#833471', '#006266', '#009432'
+    ];
+    
+    // Chart 1: Income vs Expenses
+    const months = Object.keys(incomeVsExpense).sort();
+    const incomeData = months.map(month => incomeVsExpense[month].income || 0);
+    const expenseData = months.map(month => incomeVsExpense[month].expense || 0);
+    
+    // Format month labels (from YYYY-MM to MMM YYYY)
+    const formattedMonths = months.map(month => {
+        const year = month.split('-')[0];
+        const monthNum = parseInt(month.split('-')[1]);
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[monthNum-1]} ${year}`;
+    });
+    
+    const incomeVsExpenseCtx = document.getElementById('incomeVsExpenseChart').getContext('2d');
+    new Chart(incomeVsExpenseCtx, {
+        type: 'bar',
+        data: {
+            labels: formattedMonths,
+            datasets: [
+                {
+                    label: 'Income',
+                    data: incomeData,
+                    backgroundColor: '#1cc88a',
+                    borderColor: '#1cc88a',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Expenses',
+                    data: expenseData,
+                    backgroundColor: '#e74a3b',
+                    borderColor: '#e74a3b',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value;
+                        }
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Monthly Income vs Expenses'
+                }
+            }
+        }
+    });
+    
+    // Chart 2: Monthly Expense Breakdown
+    const monthSelector = document.getElementById('monthSelector');
+    
+    // Populate month selector
+    months.forEach(month => {
+        const option = document.createElement('option');
+        option.value = month;
+        
+        const year = month.split('-')[0];
+        const monthNum = parseInt(month.split('-')[1]);
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        
+        option.text = `${monthNames[monthNum-1]} ${year}`;
+        monthSelector.appendChild(option);
+    });
+    
+    // Default to most recent month
+    const latestMonth = months[months.length - 1];
+    monthSelector.value = latestMonth;
+    
+    const expenseBreakdownCtx = document.getElementById('expenseBreakdownChart').getContext('2d');
+    let expenseBreakdownChart;
+    
+    function updateExpenseBreakdown() {
+        const selectedMonth = monthSelector.value;
+        const monthData = reportData[selectedMonth] || {};
+        
+        const categories = Object.keys(monthData);
+        const values = categories.map(category => monthData[category]);
+        
+        // Destroy previous chart if it exists
+        if (expenseBreakdownChart) {
+            expenseBreakdownChart.destroy();
+        }
+        
+        expenseBreakdownChart = new Chart(expenseBreakdownCtx, {
+            type: 'doughnut',
+            data: {
+                labels: categories,
+                datasets: [{
+                    data: values,
+                    backgroundColor: categories.map((_, i) => colors[i % colors.length])
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    title: {
+                        display: true,
+                        text: `Expenses for ${monthSelector.options[monthSelector.selectedIndex].text}`
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.raw;
+                                let sum = 0;
+                                context.dataset.data.forEach(val => sum += val);
+                                const percentage = Math.round((value / sum) * 100);
+                                return `${context.label}: $${value.toFixed(2)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Update chart when month changes
+    monthSelector.addEventListener('change', updateExpenseBreakdown);
+    
+    // Initialize expense breakdown chart
+    updateExpenseBreakdown();
+    
+    // Chart 3: Category Spending Trend
+    const categorySelector = document.getElementById('categorySelector');
+    
+    // Get all unique categories across all months
+    const allCategories = new Set();
+    Object.values(reportData).forEach(monthData => {
+        Object.keys(monthData).forEach(category => {
+            allCategories.add(category);
+        });
+    });
+    
+    // Populate category selector
+    allCategories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.text = category;
+        categorySelector.appendChild(option);
+    });
+    
+    // Default to first category
+    if (allCategories.size > 0) {
+        categorySelector.value = Array.from(allCategories)[0];
+    }
+    
+    const categoryTrendCtx = document.getElementById('categoryTrendChart').getContext('2d');
+    let categoryTrendChart;
+    
+    function updateCategoryTrend() {
+        const selectedCategory = categorySelector.value;
+        
+        const categoryData = months.map(month => {
+            const monthData = reportData[month] || {};
+            return monthData[selectedCategory] || 0;
+        });
+        
+        // Destroy previous chart if it exists
+        if (categoryTrendChart) {
+            categoryTrendChart.destroy();
+        }
+        
+        categoryTrendChart = new Chart(categoryTrendCtx, {
+            type: 'line',
+            data: {
+                labels: formattedMonths,
+                datasets: [{
+                    label: selectedCategory,
+                    data: categoryData,
+                    borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Monthly Spending Trend: ${selectedCategory}`
+                    }
+                }
+            }
+        });
+    }
+    
+    // Update chart when category changes
+    categorySelector.addEventListener('change', updateCategoryTrend);
+    
+    // Initialize category trend chart
+    if (allCategories.size > 0) {
+        updateCategoryTrend();
+    }
+});
+</script>
+{% endblock %}

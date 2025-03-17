@@ -1,0 +1,185 @@
+
+<!-- templates/categories.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Manage Categories</h1>
+
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Categories</h5>
+                <a href="{{ url_for('add_category') }}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-1"></i> Add Category
+                </a>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs" id="categoriesTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="expense-tab" data-bs-toggle="tab" data-bs-target="#expense-categories-tab" type="button" role="tab">
+                            <i class="fas fa-minus-circle text-danger me-1"></i> Expense Categories
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="income-tab" data-bs-toggle="tab" data-bs-target="#income-categories-tab" type="button" role="tab">
+                            <i class="fas fa-plus-circle text-success me-1"></i> Income Categories
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content p-3 border border-top-0 rounded-bottom">
+                    <!-- Expense Categories Tab -->
+                    <div class="tab-pane fade show active" id="expense-categories-tab" role="tabpanel">
+                        {% if expense_categories %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Category Name</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for category in expense_categories %}
+                                    <tr>
+                                        <td>{{ category.name }}</td>
+                                        <td class="text-center">
+                                            <a href="{{ url_for('update_category', category_id=category.id) }}" class="btn btn-sm btn-outline-primary me-1">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteCategoryModal{{ category.id }}">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                            
+                                            <!-- Delete confirmation modal -->
+                                            <div class="modal fade" id="deleteCategoryModal{{ category.id }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Confirm Deletion</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body text-start">
+                                                            Are you sure you want to delete the category <strong>{{ category.name }}</strong>?
+                                                            <p class="text-danger mt-2 mb-0">
+                                                                <i class="fas fa-exclamation-triangle me-1"></i> 
+                                                                This action cannot be undone. Categories with transactions cannot be deleted.
+                                                            </p>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                            <form action="{{ url_for('delete_category', category_id=category.id) }}" method="POST">
+                                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> No expense categories found. Add your first category.
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Income Categories Tab -->
+                    <div class="tab-pane fade" id="income-categories-tab" role="tabpanel">
+                        {% if income_categories %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Category Name</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for category in income_categories %}
+                                    <tr>
+                                        <td>{{ category.name }}</td>
+                                        <td class="text-center">
+                                            <a href="{{ url_for('update_category', category_id=category.id) }}" class="btn btn-sm btn-outline-primary me-1">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteCategoryModal{{ category.id }}">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                            
+                                            <!-- Delete confirmation modal -->
+                                            <div class="modal fade" id="deleteCategoryModal{{ category.id }}" tabindex="-1" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Confirm Deletion</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body text-start">
+                                                            Are you sure you want to delete the category <strong>{{ category.name }}</strong>?
+                                                            <p class="text-danger mt-2 mb-0">
+                                                                <i class="fas fa-exclamation-triangle me-1"></i> 
+                                                                This action cannot be undone. Categories with transactions cannot be deleted.
+                                                            </p>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                            <form action="{{ url_for('delete_category', category_id=category.id) }}" method="POST">
+                                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i> No income categories found. Add your first category.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Category Description -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">About Categories</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    Categories help you organize and analyze your financial transactions. Well-chosen categories make it easier to:
+                </p>
+                <ul>
+                    <li>Track spending patterns</li>
+                    <li>Identify areas for potential savings</li>
+                    <li>Create accurate budgets</li>
+                    <li>Prepare for tax reporting</li>
+                </ul>
+                <div class="alert alert-info">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    <strong>Tip:</strong> Create specific categories that match your spending habits and financial goals. You can always add more categories as needed.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

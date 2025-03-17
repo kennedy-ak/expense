@@ -1,0 +1,176 @@
+
+<!-- templates/add_transaction.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Add Transaction</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">New Transaction</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_transaction') }}">
+                    <!-- Transaction Type -->
+                    <div class="mb-3">
+                        <label class="form-label">Transaction Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="type" id="type-expense" value="expense" checked>
+                            <label class="btn btn-outline-danger" for="type-expense">
+                                <i class="fas fa-minus-circle me-1"></i> Expense
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="type" id="type-income" value="income">
+                            <label class="btn btn-outline-success" for="type-income">
+                                <i class="fas fa-plus-circle me-1"></i> Income
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Account -->
+                        <div class="col-md-6 mb-3">
+                            <label for="account_id" class="form-label">Account</label>
+                            <select class="form-select" id="account_id" name="account_id" required>
+                                <option value="" selected disabled>Select Account</option>
+                                {% for account in accounts %}
+                                <option value="{{ account.id }}">{{ account.name }} (${{ account.balance|round(2) }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Category -->
+                        <div class="col-md-6 mb-3">
+                            <label for="category_id" class="form-label">Category</label>
+                            <select class="form-select" id="category_id" name="category_id" required>
+                                <option value="" selected disabled>Select Category</option>
+                                <optgroup label="Expense Categories" id="expense-categories">
+                                    {% for category in expense_categories %}
+                                    <option value="{{ category.id }}" data-type="expense">{{ category.name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="Income Categories" id="income-categories" style="display:none;">
+                                    {% for category in income_categories %}
+                                    <option value="{{ category.id }}" data-type="income">{{ category.name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Amount -->
+                        <div class="col-md-6 mb-3">
+                            <label for="amount" class="form-label">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="amount" name="amount" min="0.01" step="0.01" required>
+                            </div>
+                        </div>
+                        
+                        <!-- Date -->
+                        <div class="col-md-6 mb-3">
+                            <label for="date" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="date" name="date" value="{{ today }}" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" placeholder="Add details about this transaction"></textarea>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save me-1"></i> Save Transaction
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Account Balances</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for account in accounts %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ account.name }}
+                        <span class="badge bg-primary rounded-pill">${{ account.balance|round(2) }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Select <strong>Expense</strong> for money spent, <strong>Income</strong> for money received.
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Detailed descriptions help you track spending patterns over time.
+                    </li>
+                    <li>
+                        <i class="fas fa-info-circle text-primary me-2"></i>
+                        Use categories consistently for better financial reports.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Show/hide categories based on transaction type
+    const typeExpense = document.getElementById('type-expense');
+    const typeIncome = document.getElementById('type-income');
+    const expenseCategories = document.getElementById('expense-categories');
+    const incomeCategories = document.getElementById('income-categories');
+    const categorySelect = document.getElementById('category_id');
+    
+    function updateCategoryOptions() {
+        if (typeExpense.checked) {
+            expenseCategories.style.display = '';
+            incomeCategories.style.display = 'none';
+            
+            // Select first expense category option
+            const firstExpenseOption = document.querySelector('#expense-categories option');
+            if (firstExpenseOption) {
+                categorySelect.value = firstExpenseOption.value;
+            }
+        } else {
+            expenseCategories.style.display = 'none';
+            incomeCategories.style.display = '';
+            
+            // Select first income category option
+            const firstIncomeOption = document.querySelector('#income-categories option');
+            if (firstIncomeOption) {
+                categorySelect.value = firstIncomeOption.value;
+            }
+        }
+    }
+    
+    typeExpense.addEventListener('change', updateCategoryOptions);
+    typeIncome.addEventListener('change', updateCategoryOptions);
+    
+    // Initialize on page load
+    updateCategoryOptions();
+});
+</script>
+{% endblock %}

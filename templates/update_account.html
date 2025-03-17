@@ -1,0 +1,43 @@
+
+<!-- templates/update_account.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Update Account</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Edit Account Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('update_account', account_id=account.id) }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Account Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ account.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="balance" class="form-label">Current Balance</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="balance" name="balance" step="0.01" value="{{ account.balance }}">
+                        </div>
+                        <div class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Manually changing the balance may lead to inconsistencies with your transaction history.
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Update Account
+                        </button>
+                        <a href="{{ url_for('accounts') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times-circle me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

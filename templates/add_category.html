@@ -1,0 +1,89 @@
+
+<!-- templates/add_category.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Add New Category</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Category Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_category') }}">
+                    <div class="mb-3">
+                        <label for="type" class="form-label">Category Type</label>
+                        <select class="form-select" id="type" name="type" required>
+                            <option value="expense">Expense Category</option>
+                            <option value="income">Income Category</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Category Name</label>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="e.g., Groceries, Rent, Salary" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Add Category
+                        </button>
+                        <a href="{{ url_for('categories') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times-circle me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Category Suggestions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-header bg-danger text-white">
+                                <h6 class="mb-0">Common Expense Categories</h6>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled mb-0">
+                                    <li><i class="fas fa-utensils me-2"></i> Food & Dining</li>
+                                    <li><i class="fas fa-home me-2"></i> Housing</li>
+                                    <li><i class="fas fa-car me-2"></i> Transportation</li>
+                                    <li><i class="fas fa-bolt me-2"></i> Utilities</li>
+                                    <li><i class="fas fa-shopping-bag me-2"></i> Shopping</li>
+                                    <li><i class="fas fa-heartbeat me-2"></i> Healthcare</li>
+                                    <li><i class="fas fa-graduation-cap me-2"></i> Education</li>
+                                    <li><i class="fas fa-film me-2"></i> Entertainment</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h6 class="mb-0">Common Income Categories</h6>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-unstyled mb-0">
+                                    <li><i class="fas fa-briefcase me-2"></i> Salary</li>
+                                    <li><i class="fas fa-laptop-code me-2"></i> Freelance</li>
+                                    <li><i class="fas fa-hand-holding-usd me-2"></i> Gifts</li>
+                                    <li><i class="fas fa-chart-line me-2"></i> Investments</li>
+                                    <li><i class="fas fa-building me-2"></i> Rental Income</li>
+                                    <li><i class="fas fa-undo me-2"></i> Refunds</li>
+                                    <li><i class="fas fa-piggy-bank me-2"></i> Interest</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

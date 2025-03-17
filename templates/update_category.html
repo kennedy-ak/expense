@@ -1,0 +1,37 @@
+
+<!-- templates/update_category.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Update Category</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Edit Category Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('update_category', category_id=category.id) }}">
+                    <div class="mb-3">
+                        <label class="form-label">Category Type</label>
+                        <input type="text" class="form-control" value="{{ 'Expense' if category.type == 'expense' else 'Income' }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Category Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ category.name }}" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Update Category
+                        </button>
+                        <a href="{{ url_for('categories') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times-circle me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

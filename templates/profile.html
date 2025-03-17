@@ -1,0 +1,162 @@
+<!-- templates/profile.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">User Profile</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Profile Information</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <input type="hidden" name="form_type" value="profile">
+                    <div class="row mb-3">
+                        <label for="username" class="col-sm-3 col-form-label">Username</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="username" value="{{ user.username }}" disabled>
+                            <div class="form-text text-muted">Username cannot be changed</div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="name" class="col-sm-3 col-form-label">Full Name</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="name" name="name" value="{{ user.name }}" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="email" class="col-sm-3 col-form-label">Email Address</label>
+                        <div class="col-sm-9">
+                            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <label for="date_registered" class="col-sm-3 col-form-label">Registration Date</label>
+                        <div class="col-sm-9">
+                            <input type="text" class="form-control" id="date_registered" value="{{ user.date_registered.strftime('%Y-%m-%d') }}" disabled>
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Update Profile
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Change Password</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <input type="hidden" name="form_type" value="password">
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">Current Password</label>
+                        <input type="password" class="form-control" id="current_password" name="current_password" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-key me-1"></i> Change Password
+                        </button>
+                    </div>
+                    <div class="form-text text-muted mt-2">
+                        <i class="fas fa-info-circle me-1"></i> Only fill out this form if you want to change your password
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Account Summary</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-university me-2"></i> Accounts</span>
+                        <span class="badge bg-primary rounded-pill">{{ user.accounts|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-tags me-2"></i> Categories</span>
+                        <span class="badge bg-primary rounded-pill">{{ user.categories|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-exchange-alt me-2"></i> Transactions</span>
+                        <span class="badge bg-primary rounded-pill">{{ user.transactions|length }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> Data Management</h5>
+            </div>
+            <div class="card-body">
+                <p>You can export or delete your data from the system.</p>
+                <div class="d-grid gap-2">
+                    <form action="{{ url_for('export_data') }}" method="POST">
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-download me-1"></i> Export All Data
+                        </button>
+                    </form>
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                        <i class="fas fa-trash-alt me-1"></i> Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Delete Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete your account? This action cannot be undone and will permanently delete:</p>
+                <ul>
+                    <li>Your user profile</li>
+                    <li>All your accounts</li>
+                    <li>All your transactions</li>
+                    <li>All your financial data</li>
+                </ul>
+                <div class="alert alert-danger">
+                    <strong>This action is permanent!</strong> You will not be able to recover any of your data.
+                </div>
+                <form method="POST" action="{{ url_for('delete_user_account') }}" id="deleteAccountForm">
+                    <div class="mb-3">
+                        <label for="delete_password" class="form-label">Please enter your password to confirm:</label>
+                        <input type="password" class="form-control" id="delete_password" name="delete_password" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="deleteAccountForm" class="btn btn-danger">
+                    <i class="fas fa-trash-alt me-1"></i> Delete Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

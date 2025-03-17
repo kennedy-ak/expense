@@ -1,0 +1,67 @@
+<!-- templates/add_account.html -->
+{% extends "layout.html" %}
+{% block content %}
+<h1 class="mb-4">Add New Account</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Account Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_account') }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Account Name</label>
+                        <input type="text" class="form-control" id="name" name="name" placeholder="e.g., Checking Account, Cash, Credit Card" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="balance" class="form-label">Initial Balance</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="balance" name="balance" step="0.01" value="0.00">
+                        </div>
+                        <div class="form-text">Current balance in this account</div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Add Account
+                        </button>
+                        <a href="{{ url_for('accounts') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times-circle me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Tips for Account Setup</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        <strong>Use descriptive names</strong> that help you identify each account easily.
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        <strong>Enter accurate initial balances</strong> to ensure your financial reports are correct from the start.
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        <strong>Create separate accounts</strong> for different financial institutions or purposes.
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        <strong>Include all account types</strong>, such as checking, savings, credit cards, and cash.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
