@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -13,17 +14,53 @@ import json
 from datetime import datetime
 
 
-from langchain_groq import ChatGroq
-from langchain.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+from werkzeug.utils import secure_filename
+import uuid
+
+# Import MoMo PDF parsing utilities
+from momo_import import (
+    parse_momo_pdf, categorize_transactions, find_duplicates,
+    generate_import_summary, allowed_file, UPLOAD_FOLDER, MAX_FILE_SIZE
+)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key_here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///expense_tracker.db'
+
+# Load environment variables
+load_dotenv()
+
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_secret_key_here')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://kennedy:Ybok7619.@157.173.118.68:5432/fintech_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,  # Check connection before use
+    'pool_recycle': 300,    # Recycle connections every 5 minutes
+}
+
+# Session configuration for better security
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes in seconds
+app.config['REMEMBER_COOKIE_DURATION'] = 2592000  # 30 days in seconds
+app.config['REMEMBER_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+
+# Currency configuration
+CURRENCIES = {
+    'GHS': {'name': 'Ghanaian Cedi', 'symbol': 'GH₵'},
+    'USD': {'name': 'US Dollar', 'symbol': '$'},
+    'EUR': {'name': 'Euro', 'symbol': '€'},
+    'GBP': {'name': 'British Pound', 'symbol': '£'},
+    'NGN': {'name': 'Nigerian Naira', 'symbol': '₦'},
+    'KES': {'name': 'Kenyan Shilling', 'symbol': 'KSh'},
+    'ZAR': {'name': 'South African Rand', 'symbol': 'R'},
+}
 
 # Custom Jinja filters
 @app.template_filter('nl2br')
@@ -33,7 +70,21 @@ def nl2br(value):
         value = value.replace('\n', '<br>')
     return value
 
+@app.template_filter('currency')
+def format_currency(value, currency_code='GHS'):
+    """Format a value with currency symbol."""
+    if value is None:
+        value = 0
+    symbol = CURRENCIES.get(currency_code, CURRENCIES['GHS'])['symbol']
+    return f"{symbol}{value:,.2f}"
+
+# Make currencies available to all templates
+@app.context_processor
+def inject_currencies():
+    return {'CURRENCIES': CURRENCIES}
+
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -45,7 +96,8 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(200), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     date_registered = db.Column(db.DateTime, default=datetime.utcnow)
-    
+    currency = db.Column(db.String(10), default='GHS')  # Default to Ghanaian Cedi
+
     # Relationships
     accounts = db.relationship('Account', backref='owner', lazy=True)
     categories = db.relationship('Category', backref='owner', lazy=True)
@@ -75,19 +127,71 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(200))
     date = db.Column(db.Date, default=datetime.utcnow)
-    
+
     # Foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     account_id = db.Column(db.Integer, db.ForeignKey('account.id'), nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
 
+    # Extended fields for MoMo imports
+    counterparty = db.Column(db.String(200))  # Name/phone of other party
+    payment_method = db.Column(db.String(50))  # CASH OUT, MOMO USER, etc.
+    balance_after = db.Column(db.Float)  # Balance after transaction
+    transaction_id = db.Column(db.String(50), unique=True, nullable=True)  # MoMo transaction ID
+    fees = db.Column(db.Float, default=0.0)
+    tax = db.Column(db.Float, default=0.0)
+    reference = db.Column(db.String(200))  # Additional reference info
+    notes = db.Column(db.Text)
+
+class ImportLog(db.Model):
+    """Track PDF import history"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    import_date = db.Column(db.DateTime, default=datetime.utcnow)
+    total_transactions = db.Column(db.Integer, default=0)
+    successful_imports = db.Column(db.Integer, default=0)
+    failed_imports = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(20), default='pending')  # pending, completed, failed
+    file_path = db.Column(db.String(500))
+
+    # Relationship
+    user = db.relationship('User', backref=db.backref('import_logs', lazy=True))
+
+class MoMoTransaction(db.Model):
+    """Separate table for MoMo transactions"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    # Transaction details
+    type = db.Column(db.String(10), nullable=False)  # 'income', 'expense', 'transfer'
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, nullable=False)
+
+    # MoMo-specific fields
+    payment_type = db.Column(db.String(100))  # CASH OUT, MOMO PAY, etc.
+    counterparty = db.Column(db.String(200))  # Name of other party
+    counterparty_phone = db.Column(db.String(50))  # Phone number
+    transaction_id = db.Column(db.String(50), unique=True, nullable=True)
+    fees = db.Column(db.Float, default=0.0)
+    tax = db.Column(db.Float, default=0.0)
+    balance_after = db.Column(db.Float)
+    reference = db.Column(db.String(200))
+
+    # Categorization
+    category = db.Column(db.String(100))  # Auto-categorized category name
+
+    # Import tracking
+    import_log_id = db.Column(db.Integer, db.ForeignKey('import_log.id'))
+
+    # Relationships
+    user = db.relationship('User', backref=db.backref('momo_transactions', lazy=True))
+    import_log = db.relationship('ImportLog', backref=db.backref('momo_transactions', lazy=True))
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-
-# Load environment variables
-load_dotenv()
 
 def get_financial_insights(user_id):
     """Generate financial insights using LLM."""
@@ -157,10 +261,10 @@ def get_financial_insights(user_id):
     """
     
     try:
-        # Initialize the Groq LLM
-        llm = ChatGroq(
-            groq_api_key=os.getenv("GROQ_API_KEY"),
-            model_name="llama3-70b-8192"  # You can change this to a different model
+        # Initialize the Gemini LLM
+        llm = ChatGoogleGenerativeAI(
+            google_api_key=os.getenv("GEMINI_API_KEY"),
+            model="gemini-1.5-flash"
         )
         
         # Create a prompt template
@@ -207,7 +311,7 @@ def create_default_categories(user_id):
 def index():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    return render_template('index.html')
+    return render_template('landing.html')
 
 # @app.route('/register', methods=['GET', 'POST'])
 # def register():
@@ -304,23 +408,28 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
-        
+        currency = request.form.get('currency', 'GHS')
+
         # Validation
         if User.query.filter_by(username=username).first():
             flash('Username already exists', 'danger')
             return redirect(url_for('register'))
-            
+
         if User.query.filter_by(email=email).first():
             flash('Email already registered', 'danger')
             return redirect(url_for('register'))
-            
+
         if password != confirm_password:
             flash('Passwords do not match', 'danger')
             return redirect(url_for('register'))
-        
+
+        # Validate currency
+        if currency not in CURRENCIES:
+            currency = 'GHS'
+
         # Create new user with the updated method parameter
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, name=name, email=email, password=hashed_password)
+        new_user = User(username=username, name=name, email=email, password=hashed_password, currency=currency)
         db.session.add(new_user)
         db.session.commit()
         
@@ -343,24 +452,41 @@ def login():
     # If user is already logged in, redirect to dashboard
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-        
+
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
         remember = True if request.form.get('remember') else False
-        
-        user = User.query.filter_by(username=username).first()
-        
-        if not user or not check_password_hash(user.password, password):
-            flash('Please check your login details and try again.', 'danger')
+
+        # Input validation
+        if not username or not password:
+            flash('Username and password are required.', 'danger')
             return redirect(url_for('login'))
-            
+
+        # Query user by username
+        user = User.query.filter_by(username=username).first()
+
+        # Validate credentials
+        if not user or not check_password_hash(user.password, password):
+            flash('Invalid username or password. Please try again.', 'danger')
+            return redirect(url_for('login'))
+
+        # Log the user in
         login_user(user, remember=remember)
+
+        # Make session permanent if remember me is checked
+        if remember:
+            session.permanent = True
+
+        # Flash success message
+        flash(f'Welcome back, {user.name}!', 'success')
+
+        # Handle next parameter for redirect
         next_page = request.args.get('next')
         if next_page:
             return redirect(next_page)
         return redirect(url_for('dashboard'))
-        
+
     return render_template('login.html')
 
 # @app.route('/login', methods=['GET', 'POST'])
@@ -384,7 +510,18 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    # Store user name before logout for personalized message
+    user_name = current_user.name
+
+    # Clear the session
+    session.clear()
+
+    # Log out the user
     logout_user()
+
+    # Flash a goodbye message
+    flash(f'Goodbye, {user_name}! You have been successfully logged out.', 'info')
+
     return redirect(url_for('index'))
 
 @app.route('/dashboard')
@@ -494,6 +631,419 @@ def add_transaction():
                           expense_categories=expense_categories,
                           income_categories=income_categories,
                           today=datetime.now().strftime('%Y-%m-%d'))
+
+# =============================================================================
+# MOMO PDF IMPORT ROUTES
+# =============================================================================
+
+@app.route('/import-statement', methods=['GET', 'POST'])
+@login_required
+def import_statement():
+    """Handle MoMo PDF statement upload."""
+    if request.method == 'POST':
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            flash('No file uploaded', 'danger')
+            return redirect(request.url)
+
+        file = request.files['file']
+
+        if file.filename == '':
+            flash('No file selected', 'danger')
+            return redirect(request.url)
+
+        if not allowed_file(file.filename):
+            flash('Invalid file type. Only PDF files are allowed.', 'danger')
+            return redirect(request.url)
+
+        # Check file size
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Seek back to start
+
+        if file_size > MAX_FILE_SIZE:
+            flash('File too large. Maximum size is 10MB.', 'danger')
+            return redirect(request.url)
+
+        # Create upload directory if it doesn't exist
+        upload_path = os.path.join(app.root_path, UPLOAD_FOLDER)
+        os.makedirs(upload_path, exist_ok=True)
+
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = os.path.join(upload_path, unique_filename)
+
+        # Save file
+        file.save(file_path)
+
+        # Create import log entry
+        import_log = ImportLog(
+            user_id=current_user.id,
+            filename=filename,
+            file_path=file_path,
+            status='processing'
+        )
+        db.session.add(import_log)
+        db.session.commit()
+
+        # Parse PDF
+        result = parse_momo_pdf(file_path)
+
+        if result['total_errors'] > 0 and result['total_parsed'] == 0:
+            import_log.status = 'failed'
+            db.session.commit()
+            flash(f'Failed to parse PDF: {result["errors"][0]["error"]}', 'danger')
+            return redirect(url_for('import_statement'))
+
+        # Get user's categories for auto-categorization
+        user_categories = Category.query.filter_by(user_id=current_user.id).all()
+
+        # Categorize transactions
+        transactions = categorize_transactions(result['transactions'], user_categories)
+
+        # Check for duplicates in MoMoTransaction table
+        existing_ids = set(
+            t.transaction_id for t in MoMoTransaction.query.filter(
+                MoMoTransaction.user_id == current_user.id,
+                MoMoTransaction.transaction_id.isnot(None)
+            ).all()
+        )
+        transactions = find_duplicates(transactions, existing_ids)
+
+        # Generate summary
+        summary = generate_import_summary(transactions)
+
+        # Store in session for preview
+        session['import_data'] = {
+            'transactions': [{
+                **t,
+                'date': t['date'].isoformat() if t.get('date') else None
+            } for t in transactions],
+            'summary': summary,
+            'import_log_id': import_log.id,
+            'errors': result['errors']
+        }
+
+        return redirect(url_for('import_preview'))
+
+    # GET request - show upload form
+    return render_template('import_statement.html')
+
+
+@app.route('/import-preview', methods=['GET', 'POST'])
+@login_required
+def import_preview():
+    """Show parsed transactions for review before import."""
+    import_data = session.get('import_data')
+
+    if not import_data:
+        flash('No import data found. Please upload a file first.', 'warning')
+        return redirect(url_for('import_statement'))
+
+    if request.method == 'POST':
+        # Process the import
+        selected_indices = request.form.getlist('selected')
+        categories_map = {}
+
+        # Get category assignments from form
+        for key, value in request.form.items():
+            if key.startswith('category_'):
+                idx = int(key.replace('category_', ''))
+                categories_map[idx] = value  # Store category name, not ID
+
+        # Import selected transactions to MoMoTransaction table
+        transactions = import_data['transactions']
+        import_log_id = import_data['import_log_id']
+        import_log = ImportLog.query.get(import_log_id)
+
+        successful = 0
+        failed = 0
+
+        for idx_str in selected_indices:
+            idx = int(idx_str)
+            if idx >= len(transactions):
+                continue
+
+            trans = transactions[idx]
+
+            # Skip duplicates
+            if trans.get('is_duplicate'):
+                continue
+
+            try:
+                # Get category name
+                category_name = categories_map.get(idx, trans.get('suggested_category', 'Other'))
+
+                # Parse date
+                trans_date = datetime.fromisoformat(trans['date']) if trans.get('date') else datetime.now()
+
+                # Create MoMo transaction
+                new_trans = MoMoTransaction(
+                    user_id=current_user.id,
+                    type=trans.get('type', 'expense'),
+                    amount=trans.get('amount', 0),
+                    date=trans_date,
+                    payment_type=trans.get('payment_type'),
+                    counterparty=trans.get('counterparty'),
+                    counterparty_phone=trans.get('counterparty_phone'),
+                    transaction_id=trans.get('transaction_id'),
+                    fees=trans.get('fees', 0),
+                    tax=trans.get('tax', 0),
+                    balance_after=trans.get('balance_after'),
+                    reference=trans.get('reference'),
+                    category=category_name,
+                    import_log_id=import_log_id
+                )
+                db.session.add(new_trans)
+                successful += 1
+
+            except Exception as e:
+                failed += 1
+                continue
+
+        # Update import log
+        if import_log:
+            import_log.total_transactions = len(selected_indices)
+            import_log.successful_imports = successful
+            import_log.failed_imports = failed
+            import_log.status = 'completed' if successful > 0 else 'failed'
+
+        db.session.commit()
+
+        # Clear session data
+        session.pop('import_data', None)
+
+        flash(f'Import complete! {successful} MoMo transactions imported, {failed} failed.', 'success')
+        return redirect(url_for('momo_transactions'))
+
+    # GET request - show preview
+    # Convert date strings back to displayable format
+    transactions = import_data['transactions']
+    for trans in transactions:
+        if trans.get('date'):
+            trans['date_display'] = datetime.fromisoformat(trans['date']).strftime('%d %b %Y %H:%M')
+
+    # Get user's categories
+    expense_categories = Category.query.filter_by(user_id=current_user.id, type='expense').all()
+    income_categories = Category.query.filter_by(user_id=current_user.id, type='income').all()
+
+    return render_template('import_preview.html',
+                          transactions=transactions,
+                          summary=import_data['summary'],
+                          errors=import_data.get('errors', []),
+                          expense_categories=expense_categories,
+                          income_categories=income_categories)
+
+
+@app.route('/import-history')
+@login_required
+def import_history():
+    """Show history of PDF imports."""
+    imports = ImportLog.query.filter_by(user_id=current_user.id)\
+        .order_by(ImportLog.import_date.desc()).all()
+    return render_template('import_history.html', imports=imports)
+
+# =============================================================================
+# MOMO DASHBOARD, TRANSACTIONS & INSIGHTS
+# =============================================================================
+
+@app.route('/momo/dashboard')
+@login_required
+def momo_dashboard():
+    """MoMo-specific dashboard with overview and charts."""
+    # Get MoMo transactions for current user
+    transactions = MoMoTransaction.query.filter_by(user_id=current_user.id)\
+        .order_by(MoMoTransaction.date.desc()).all()
+
+    # Calculate summary stats
+    total_income = sum(t.amount for t in transactions if t.type == 'income')
+    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+    total_fees = sum(t.fees or 0 for t in transactions)
+    total_tax = sum(t.tax or 0 for t in transactions)
+    net_flow = total_income - total_expense
+
+    # Get latest balance
+    latest_balance = transactions[0].balance_after if transactions else 0
+
+    # Category breakdown for expenses
+    expense_by_category = {}
+    for t in transactions:
+        if t.type == 'expense':
+            cat = t.category or 'Other'
+            expense_by_category[cat] = expense_by_category.get(cat, 0) + t.amount
+
+    # Monthly summary (last 6 months)
+    monthly_data = {}
+    for t in transactions:
+        month_key = t.date.strftime('%Y-%m')
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {'income': 0, 'expense': 0}
+        if t.type == 'income':
+            monthly_data[month_key]['income'] += t.amount
+        else:
+            monthly_data[month_key]['expense'] += t.amount
+
+    # Recent transactions (last 10)
+    recent_transactions = transactions[:10]
+
+    return render_template('momo_dashboard.html',
+                          total_income=total_income,
+                          total_expense=total_expense,
+                          total_fees=total_fees,
+                          total_tax=total_tax,
+                          net_flow=net_flow,
+                          latest_balance=latest_balance,
+                          expense_by_category=expense_by_category,
+                          monthly_data=monthly_data,
+                          recent_transactions=recent_transactions,
+                          total_transactions=len(transactions))
+
+
+@app.route('/momo/transactions')
+@login_required
+def momo_transactions():
+    """List all MoMo transactions."""
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    # Filter options
+    trans_type = request.args.get('type', '')
+    category = request.args.get('category', '')
+    search = request.args.get('search', '')
+
+    query = MoMoTransaction.query.filter_by(user_id=current_user.id)
+
+    if trans_type:
+        query = query.filter(MoMoTransaction.type == trans_type)
+    if category:
+        query = query.filter(MoMoTransaction.category == category)
+    if search:
+        query = query.filter(
+            (MoMoTransaction.counterparty.ilike(f'%{search}%')) |
+            (MoMoTransaction.payment_type.ilike(f'%{search}%')) |
+            (MoMoTransaction.reference.ilike(f'%{search}%'))
+        )
+
+    transactions = query.order_by(MoMoTransaction.date.desc())\
+        .paginate(page=page, per_page=per_page, error_out=False)
+
+    # Get unique categories for filter dropdown
+    categories = db.session.query(MoMoTransaction.category)\
+        .filter(MoMoTransaction.user_id == current_user.id)\
+        .distinct().all()
+    categories = [c[0] for c in categories if c[0]]
+
+    return render_template('momo_transactions.html',
+                          transactions=transactions,
+                          categories=categories,
+                          current_type=trans_type,
+                          current_category=category,
+                          search=search)
+
+
+@app.route('/momo/insights')
+@login_required
+def momo_insights():
+    """AI-powered insights for MoMo transactions."""
+    # Get MoMo transactions for analysis
+    three_months_ago = datetime.now() - timedelta(days=90)
+
+    transactions = MoMoTransaction.query.filter(
+        MoMoTransaction.user_id == current_user.id,
+        MoMoTransaction.date >= three_months_ago
+    ).order_by(MoMoTransaction.date.desc()).all()
+
+    if not transactions:
+        return render_template('momo_insights.html',
+                             insights=None,
+                             message="No MoMo transactions found. Import a statement to get started.")
+
+    # Prepare data for LLM
+    total_income = sum(t.amount for t in transactions if t.type == 'income')
+    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+    total_fees = sum(t.fees or 0 for t in transactions)
+    total_tax = sum(t.tax or 0 for t in transactions)
+
+    # Category breakdown
+    expense_by_category = {}
+    for t in transactions:
+        if t.type == 'expense':
+            cat = t.category or 'Other'
+            expense_by_category[cat] = expense_by_category.get(cat, 0) + t.amount
+
+    # Top counterparties
+    counterparty_totals = {}
+    for t in transactions:
+        if t.counterparty and t.type == 'expense':
+            counterparty_totals[t.counterparty] = counterparty_totals.get(t.counterparty, 0) + t.amount
+
+    top_counterparties = sorted(counterparty_totals.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # Generate insights using LLM
+    try:
+        llm = ChatGoogleGenerativeAI(
+            google_api_key=os.getenv("GEMINI_API_KEY"),
+            model="gemini-1.5-flash"
+        )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a financial advisor analyzing MTN Mobile Money (MoMo) transaction data. Provide clear, actionable insights about spending patterns, fees, and recommendations for better mobile money management. Be specific and reference the actual numbers provided."),
+            ("user", """Analyze this MoMo transaction data from the last 3 months:
+
+Total Income: GHS {total_income:.2f}
+Total Expenses: GHS {total_expense:.2f}
+Total Fees Paid: GHS {total_fees:.2f}
+Total Tax Paid: GHS {total_tax:.2f}
+Net Flow: GHS {net_flow:.2f}
+Number of Transactions: {num_transactions}
+
+Expenses by Category:
+{category_breakdown}
+
+Top 5 Payment Recipients:
+{top_recipients}
+
+Please provide:
+1. Summary of MoMo usage patterns
+2. Analysis of fees and how to reduce them
+3. Top spending categories and recommendations
+4. Any concerning patterns or opportunities for savings
+5. Specific actionable tips for better MoMo management""")
+        ])
+
+        category_text = "\n".join([f"- {cat}: GHS {amt:.2f}" for cat, amt in expense_by_category.items()])
+        recipients_text = "\n".join([f"- {name}: GHS {amt:.2f}" for name, amt in top_counterparties])
+
+        chain = prompt | llm
+        response = chain.invoke({
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "total_fees": total_fees,
+            "total_tax": total_tax,
+            "net_flow": total_income - total_expense,
+            "num_transactions": len(transactions),
+            "category_breakdown": category_text or "No categorized expenses",
+            "top_recipients": recipients_text or "No recipient data"
+        })
+
+        insights = response.content
+
+    except Exception as e:
+        insights = f"Unable to generate AI insights: {str(e)}"
+
+    return render_template('momo_insights.html',
+                          insights=insights,
+                          total_income=total_income,
+                          total_expense=total_expense,
+                          total_fees=total_fees,
+                          total_tax=total_tax,
+                          expense_by_category=expense_by_category,
+                          num_transactions=len(transactions))
+
+# =============================================================================
+# END MOMO DASHBOARD, TRANSACTIONS & INSIGHTS
+# =============================================================================
 
 # Add this function to your app.py file or replace the existing accounts route
 
@@ -698,13 +1248,13 @@ def report():
     # Get summary data for reports
     # Monthly expenses by category
     monthly_expenses = db.session.query(
-        func.strftime('%Y-%m', Transaction.date).label('month'),
+        func.to_char(Transaction.date, 'YYYY-MM').label('month'),
         Category.name,
         func.sum(Transaction.amount)
     ).join(Category, Transaction.category_id == Category.id) \
     .filter(Transaction.user_id == current_user.id) \
     .filter(Transaction.type == 'expense') \
-    .group_by('month', Category.name) \
+    .group_by(func.to_char(Transaction.date, 'YYYY-MM'), Category.name) \
     .order_by('month') \
     .all()
     
@@ -717,11 +1267,11 @@ def report():
     
     # Get income vs expenses by month
     monthly_summary = db.session.query(
-        func.strftime('%Y-%m', Transaction.date).label('month'),
+        func.to_char(Transaction.date, 'YYYY-MM').label('month'),
         Transaction.type,
         func.sum(Transaction.amount)
     ).filter(Transaction.user_id == current_user.id) \
-    .group_by('month', Transaction.type) \
+    .group_by(func.to_char(Transaction.date, 'YYYY-MM'), Transaction.type) \
     .order_by('month') \
     .all()
     
@@ -784,6 +1334,9 @@ def profile():
             # Update user profile info
             current_user.name = request.form.get('name')
             current_user.email = request.form.get('email')
+            currency = request.form.get('currency', current_user.currency)
+            if currency in CURRENCIES:
+                current_user.currency = currency
             flash('Profile updated successfully', 'success')
             
         elif form_type == 'password':

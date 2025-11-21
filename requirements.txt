@@ -5,7 +5,10 @@ Werkzeug
 python-dotenv
 pandas
 SQLAlchemy
+psycopg2-binary
 langchain-groq
 datetime
 gunicorn
 langchain
+pdfplumber
+flask-migrate

@@ -19,7 +19,7 @@
                     <div class="mb-3">
                         <label for="balance" class="form-label">Current Balance</label>
                         <div class="input-group">
-                            <span class="input-group-text">$</span>
+                            <span class="input-group-text">{{ CURRENCIES[current_user.currency].symbol }}</span>
                             <input type="number" class="form-control" id="balance" name="balance" step="0.01" value="{{ account.balance }}">
                         </div>
                         <div class="form-text text-warning">

@@ -1,0 +1,224 @@
+{% extends 'layout.html' %}
+
+{% block title %}Review Import{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-list-check"></i> Review Transactions</h4>
+                    <a href="{{ url_for('import_statement') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+                <div class="card-body">
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-2">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center py-2">
+                                    <h3 class="mb-0">{{ summary.total }}</h3>
+                                    <small>Total</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center py-2">
+                                    <h3 class="mb-0">{{ summary.new_transactions }}</h3>
+                                    <small>New</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center py-2">
+                                    <h3 class="mb-0">{{ summary.duplicates }}</h3>
+                                    <small>Duplicates</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center py-2">
+                                    <h3 class="mb-0">GHS {{ "%.2f"|format(summary.total_expense) }}</h3>
+                                    <small>Expenses</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center py-2">
+                                    <h3 class="mb-0">GHS {{ "%.2f"|format(summary.total_income) }}</h3>
+                                    <small>Income</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if errors %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>{{ errors|length }} parsing errors occurred.</strong>
+                        Some rows could not be parsed.
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" id="importForm">
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                                <i class="bi bi-check-all"></i> Select All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectNone()">
+                                <i class="bi bi-x"></i> Select None
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="selectNew()">
+                                <i class="bi bi-plus"></i> Select New Only
+                            </button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="40"><input type="checkbox" id="checkAll" onchange="toggleAll(this)"></th>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Counterparty</th>
+                                        <th>Amount</th>
+                                        <th>Fees</th>
+                                        <th>Balance</th>
+                                        <th>Category</th>
+                                        <th>Reference</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for trans in transactions %}
+                                    <tr class="{% if trans.is_duplicate %}table-warning{% endif %}">
+                                        <td>
+                                            <input type="checkbox" name="selected" value="{{ loop.index0 }}"
+                                                   class="trans-checkbox"
+                                                   {% if not trans.is_duplicate %}checked{% endif %}
+                                                   {% if trans.is_duplicate %}disabled{% endif %}>
+                                        </td>
+                                        <td>
+                                            <small>{{ trans.date_display or trans.date }}</small>
+                                        </td>
+                                        <td>
+                                            {% if trans.type == 'income' %}
+                                            <span class="badge bg-success">Income</span>
+                                            {% else %}
+                                            <span class="badge bg-danger">Expense</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>{{ trans.counterparty or trans.payment_type }}</small>
+                                        </td>
+                                        <td>
+                                            <strong>GHS {{ "%.2f"|format(trans.amount) }}</strong>
+                                        </td>
+                                        <td>
+                                            <small>{{ "%.2f"|format(trans.fees or 0) }}</small>
+                                        </td>
+                                        <td>
+                                            <small>{{ "%.2f"|format(trans.balance_after or 0) }}</small>
+                                        </td>
+                                        <td>
+                                            {% if trans.is_duplicate %}
+                                            <span class="text-muted">{{ trans.suggested_category }}</span>
+                                            {% else %}
+                                            <select name="category_{{ loop.index0 }}" class="form-select form-select-sm">
+                                                {% if trans.type == 'expense' %}
+                                                    {% for cat in expense_categories %}
+                                                    <option value="{{ cat.id }}" {% if cat.name == trans.suggested_category %}selected{% endif %}>
+                                                        {{ cat.name }}
+                                                    </option>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    {% for cat in income_categories %}
+                                                    <option value="{{ cat.id }}" {% if cat.name == trans.suggested_category %}selected{% endif %}>
+                                                        {{ cat.name }}
+                                                    </option>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            </select>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ trans.reference or '-' }}</small>
+                                        </td>
+                                        <td>
+                                            {% if trans.is_duplicate %}
+                                            <span class="badge bg-warning text-dark">Duplicate</span>
+                                            {% else %}
+                                            <span class="badge bg-success">New</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <div>
+                                <span id="selectedCount">0</span> transactions selected
+                            </div>
+                            <div>
+                                <a href="{{ url_for('import_statement') }}" class="btn btn-outline-secondary">
+                                    Cancel
+                                </a>
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="bi bi-check-lg"></i> Import Selected Transactions
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    updateSelectedCount();
+});
+
+function toggleAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.trans-checkbox:not(:disabled)');
+    checkboxes.forEach(cb => cb.checked = checkbox.checked);
+    updateSelectedCount();
+}
+
+function selectAll() {
+    document.querySelectorAll('.trans-checkbox:not(:disabled)').forEach(cb => cb.checked = true);
+    updateSelectedCount();
+}
+
+function selectNone() {
+    document.querySelectorAll('.trans-checkbox').forEach(cb => cb.checked = false);
+    updateSelectedCount();
+}
+
+function selectNew() {
+    document.querySelectorAll('.trans-checkbox').forEach(cb => {
+        cb.checked = !cb.disabled;
+    });
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.trans-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+}
+
+// Update count on any checkbox change
+document.querySelectorAll('.trans-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+});
+</script>
+{% endblock %}

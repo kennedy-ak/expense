@@ -32,6 +32,18 @@
                         </div>
                     </div>
                     <div class="row mb-3">
+                        <label for="currency" class="col-sm-3 col-form-label">Currency</label>
+                        <div class="col-sm-9">
+                            <select class="form-select" id="currency" name="currency">
+                                {% for code, info in CURRENCIES.items() %}
+                                <option value="{{ code }}" {% if code == user.currency %}selected{% endif %}>
+                                    {{ info.symbol }} - {{ info.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
                         <label for="date_registered" class="col-sm-3 col-form-label">Registration Date</label>
                         <div class="col-sm-9">
                             <input type="text" class="form-control" id="date_registered" value="{{ user.date_registered.strftime('%Y-%m-%d') }}" disabled>

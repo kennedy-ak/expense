@@ -1,0 +1,22 @@
+[project]
+name = "expense"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datetime>=5.5",
+    "flask>=3.1.2",
+    "flask-login>=0.6.3",
+    "flask-migrate>=4.1.0",
+    "flask-sqlalchemy>=3.1.1",
+    "gunicorn>=23.0.0",
+    "langchain>=1.0.8",
+    "langchain-groq>=1.0.1",
+    "pandas>=2.3.3",
+    "pdfplumber>=0.11.8",
+    "psycopg2-binary>=2.9.11",
+    "python-dotenv>=1.2.1",
+    "sqlalchemy>=2.0.44",
+    "werkzeug>=3.1.3",
+]

@@ -114,7 +114,7 @@
                         <td>{{ transaction.category.name }}</td>
                         <td class="text-end {% if transaction.type == 'income' %}text-success{% else %}text-danger{% endif %}">
                             {% if transaction.type == 'income' %}+{% else %}-{% endif %}
-                            ${{ transaction.amount|round(2) }}
+                            {{ CURRENCIES[current_user.currency].symbol }}{{ transaction.amount|round(2) }}
                         </td>
                     </tr>
                     {% endfor %}

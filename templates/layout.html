@@ -168,6 +168,27 @@
                                 <i class="fas fa-plus-circle me-2"></i> Add Transaction
                             </a>
                         </li>
+                        <!-- MoMo Section -->
+                        <li class="nav-item">
+                            <a class="nav-link {% if '/momo' in request.path or request.path == url_for('import_statement') %}active{% endif %}" href="{{ url_for('momo_dashboard') }}">
+                                <i class="fas fa-mobile-alt me-2"></i> MoMo
+                            </a>
+                        </li>
+                        <li class="nav-item ms-3">
+                            <a class="nav-link {% if request.path == url_for('momo_transactions') %}active{% endif %}" href="{{ url_for('momo_transactions') }}">
+                                <i class="fas fa-list me-2"></i> <small>Transactions</small>
+                            </a>
+                        </li>
+                        <li class="nav-item ms-3">
+                            <a class="nav-link {% if request.path == url_for('momo_insights') %}active{% endif %}" href="{{ url_for('momo_insights') }}">
+                                <i class="fas fa-brain me-2"></i> <small>Insights</small>
+                            </a>
+                        </li>
+                        <li class="nav-item ms-3">
+                            <a class="nav-link {% if request.path == url_for('import_statement') %}active{% endif %}" href="{{ url_for('import_statement') }}">
+                                <i class="fas fa-file-import me-2"></i> <small>Import</small>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == url_for('accounts') %}active{% endif %}" href="{{ url_for('accounts') }}">
                                 <i class="fas fa-university me-2"></i> Accounts

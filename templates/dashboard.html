@@ -32,7 +32,7 @@
                                     <tr>
                                         <td>{{ account.name }}</td>
                                         <td class="text-end {% if account.balance > 0 %}text-success{% elif account.balance < 0 %}text-danger{% endif %}">
-                                            ${{ account.balance|round(2) }}
+                                            {{ CURRENCIES[current_user.currency].symbol }} {{ account.balance|round(2) }}
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -41,7 +41,7 @@
                                     <tr>
                                         <th>Total</th>
                                         <th class="text-end {% if total_balance > 0 %}text-success{% elif total_balance < 0 %}text-danger{% endif %}">
-                                            ${{ total_balance|round(2) }}
+                                             {{ CURRENCIES[current_user.currency].symbol }}{{ total_balance|round(2) }}
                                         </th>
                                     </tr>
                                 </tfoot>
@@ -98,7 +98,7 @@
                                 <td>{{ transaction.category.name }}</td>
                                 <td class="text-end {% if transaction.type == 'income' %}text-success{% else %}text-danger{% endif %}">
                                     {% if transaction.type == 'income' %}+{% else %}-{% endif %}
-                                    ${{ transaction.amount|round(2) }}
+                                     {{ CURRENCIES[current_user.currency].symbol }}{{ transaction.amount|round(2) }}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -216,7 +216,7 @@
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return '$' + value;
+                                    return '{{ CURRENCIES[current_user.currency].symbol }}' + value;
                                 }
                             }
                         }

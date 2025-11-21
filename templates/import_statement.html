@@ -1,0 +1,142 @@
+{% extends 'layout.html' %}
+
+{% block title %}Import MoMo Statement{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="bi bi-upload"></i> Import MTN MoMo Statement</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Upload your MTN Mobile Money PDF statement to automatically import transactions.</p>
+
+                    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <div class="mb-4">
+                            <label for="file" class="form-label">Select PDF Statement</label>
+                            <div class="upload-area border rounded p-5 text-center" id="dropZone">
+                                <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                                <p class="mt-3 mb-2">Drag and drop your PDF here</p>
+                                <p class="text-muted small">or</p>
+                                <input type="file" class="form-control d-none" id="file" name="file" accept=".pdf" required>
+                                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file').click()">
+                                    Browse Files
+                                </button>
+                                <p class="mt-3 mb-0 text-muted small">Maximum file size: 10MB</p>
+                            </div>
+                            <div id="fileInfo" class="mt-2 d-none">
+                                <span class="badge bg-success"><i class="bi bi-check"></i> <span id="fileName"></span></span>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="uploadBtn">
+                                <i class="bi bi-cloud-upload"></i> Upload and Parse
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="progress mt-3 d-none" id="progressBar">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%">
+                            Processing...
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h6>Supported Format</h6>
+                    <p class="small text-muted">
+                        MTN MoMo PDF statements with transaction tables containing:
+                        Date & Time, Payment Type, To/From, Amount, Transaction ID, Fees, Tax, Balance, Reference
+                    </p>
+
+                    <div class="alert alert-info small">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Note:</strong> After uploading, you'll be able to review all transactions before importing them.
+                        Duplicate transactions (same Transaction ID) will be automatically detected.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body">
+                    <a href="{{ url_for('import_history') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-clock-history"></i> View Import History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.upload-area {
+    border: 2px dashed #dee2e6 !important;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.upload-area:hover, .upload-area.dragover {
+    border-color: #0d6efd !important;
+    background-color: #f8f9fa;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('file');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const uploadForm = document.getElementById('uploadForm');
+    const progressBar = document.getElementById('progressBar');
+    const uploadBtn = document.getElementById('uploadBtn');
+
+    // Drag and drop handling
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            updateFileInfo(files[0]);
+        }
+    });
+
+    // Click on drop zone
+    dropZone.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            updateFileInfo(this.files[0]);
+        }
+    });
+
+    function updateFileInfo(file) {
+        fileName.textContent = file.name;
+        fileInfo.classList.remove('d-none');
+    }
+
+    // Form submission
+    uploadForm.addEventListener('submit', function() {
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+        progressBar.classList.remove('d-none');
+    });
+});
+</script>
+{% endblock %}

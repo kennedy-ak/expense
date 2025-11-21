@@ -1,0 +1,158 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-exchange-alt me-2"></i>MoMo Transactions</h2>
+    <a href="{{ url_for('import_statement') }}" class="btn btn-primary">
+        <i class="fas fa-file-import me-1"></i> Import Statement
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <select name="type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="income" {% if current_type == 'income' %}selected{% endif %}>Income</option>
+                    <option value="expense" {% if current_type == 'expense' %}selected{% endif %}>Expense</option>
+                    <option value="transfer" {% if current_type == 'transfer' %}selected{% endif %}>Transfer</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat }}" {% if current_category == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search counterparty, type, reference..." value="{{ search }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Transactions Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if transactions.items %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Payment Type</th>
+                        <th>Counterparty</th>
+                        <th>Category</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-end">Fees</th>
+                        <th class="text-end">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trans in transactions.items %}
+                    <tr>
+                        <td>
+                            <strong>{{ trans.date.strftime('%d %b %Y') }}</strong><br>
+                            <small class="text-muted">{{ trans.date.strftime('%H:%M') }}</small>
+                        </td>
+                        <td>{{ trans.payment_type or 'N/A' }}</td>
+                        <td>
+                            {% if trans.counterparty %}
+                            {{ trans.counterparty }}
+                            {% if trans.counterparty_phone %}
+                            <br><small class="text-muted">{{ trans.counterparty_phone }}</small>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ trans.category or 'Other' }}</span>
+                        </td>
+                        <td class="text-end {% if trans.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                            {% if trans.type == 'income' %}+{% else %}-{% endif %}
+                            GHS {{ "%.2f"|format(trans.amount) }}
+                        </td>
+                        <td class="text-end">
+                            {% if trans.fees or trans.tax %}
+                            <small class="text-muted">
+                                {{ "%.2f"|format((trans.fees or 0) + (trans.tax or 0)) }}
+                            </small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if trans.balance_after %}
+                            GHS {{ "%.2f"|format(trans.balance_after) }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if transactions.pages > 1 %}
+        <div class="card-footer">
+            <nav aria-label="Transaction pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if transactions.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('momo_transactions', page=transactions.prev_num, type=current_type, category=current_category, search=search) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in transactions.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == transactions.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('momo_transactions', page=page_num, type=current_type, category=current_category, search=search) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if transactions.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('momo_transactions', page=transactions.next_num, type=current_type, category=current_category, search=search) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No MoMo transactions found</p>
+            <a href="{{ url_for('import_statement') }}" class="btn btn-primary">
+                <i class="fas fa-file-import me-1"></i> Import Your First Statement
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

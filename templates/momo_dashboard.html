@@ -1,0 +1,179 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-mobile-alt me-2"></i>MoMo Dashboard</h2>
+    <div>
+        <a href="{{ url_for('import_statement') }}" class="btn btn-primary">
+            <i class="fas fa-file-import me-1"></i> Import Statement
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <h6 class="card-title">Total Income</h6>
+                <h3 class="mb-0">GHS {{ "%.2f"|format(total_income) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-danger text-white h-100">
+            <div class="card-body">
+                <h6 class="card-title">Total Expenses</h6>
+                <h3 class="mb-0">GHS {{ "%.2f"|format(total_expense) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <h6 class="card-title">Fees + Tax</h6>
+                <h3 class="mb-0">GHS {{ "%.2f"|format(total_fees + total_tax) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body">
+                <h6 class="card-title">Current Balance</h6>
+                <h3 class="mb-0">GHS {{ "%.2f"|format(latest_balance or 0) }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Net Flow -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5>Net Flow (Income - Expenses)</h5>
+                <h2 class="{% if net_flow >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    GHS {{ "%.2f"|format(net_flow) }}
+                </h2>
+                <small class="text-muted">{{ total_transactions }} total transactions</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Expense by Category Chart -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Expenses by Category</h5>
+            </div>
+            <div class="card-body">
+                {% if expense_by_category %}
+                <canvas id="categoryChart"></canvas>
+                {% else %}
+                <p class="text-muted text-center">No expense data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Transactions</h5>
+                <a href="{{ url_for('momo_transactions') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_transactions %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trans in recent_transactions %}
+                            <tr>
+                                <td>{{ trans.date.strftime('%d %b') }}</td>
+                                <td>
+                                    <small>{{ trans.payment_type or trans.counterparty or 'N/A' }}</small>
+                                </td>
+                                <td class="{% if trans.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if trans.type == 'income' %}+{% else %}-{% endif %}
+                                    GHS {{ "%.2f"|format(trans.amount) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">No transactions yet</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_for('momo_transactions') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-1"></i> All Transactions
+                    </a>
+                    <a href="{{ url_for('momo_insights') }}" class="btn btn-outline-success">
+                        <i class="fas fa-brain me-1"></i> AI Insights
+                    </a>
+                    <a href="{{ url_for('import_statement') }}" class="btn btn-outline-info">
+                        <i class="fas fa-file-import me-1"></i> Import Statement
+                    </a>
+                    <a href="{{ url_for('import_history') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-history me-1"></i> Import History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if expense_by_category %}
+// Category Pie Chart
+const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+new Chart(categoryCtx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ expense_by_category.keys()|list|tojson }},
+        datasets: [{
+            data: {{ expense_by_category.values()|list|tojson }},
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                '#FF9F40', '#FF6384', '#C9CBCF', '#7BC225', '#B8860B'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

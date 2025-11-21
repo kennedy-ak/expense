@@ -1,0 +1,106 @@
+FININSIGHT - Personal Financial Tracking Application
+====================================================
+
+OVERVIEW
+--------
+FinInsight is a web-based personal finance management application that helps users track their income, expenses, and financial health with AI-powered insights.
+
+CORE FEATURES
+-------------
+
+1. USER AUTHENTICATION
+   - User registration with secure password hashing
+   - Login/logout with session management
+   - Remember me functionality
+   - Password-protected account deletion
+
+2. ACCOUNT MANAGEMENT
+   - Create multiple financial accounts (e.g., Cash, Bank, Savings)
+   - Track balances for each account
+   - Update account names and balances
+   - Delete accounts (only if no transactions exist)
+   - Default "Cash" account created on registration
+
+3. CATEGORY MANAGEMENT
+   - Organize transactions by categories
+   - Separate expense and income category types
+   - Custom category creation
+   - Default categories provided:
+     * Expense: Food, Transport, Housing, Utilities, Entertainment, Shopping, Healthcare, Education, Other
+     * Income: Salary, Gift, Investment, Freelance, Other
+
+4. TRANSACTION TRACKING
+   - Record income and expense transactions
+   - Link transactions to accounts and categories
+   - Add descriptions and dates
+   - Automatic account balance updates
+   - Balance validation (prevents overspending)
+   - View and filter transaction history
+
+5. DASHBOARD
+   - Overview of all account balances
+   - Recent transactions list
+   - Visual charts showing:
+     * Expense distribution by category (pie chart)
+     * Account balance distribution (pie chart)
+
+6. FINANCIAL REPORTS
+   - Monthly expense breakdown by category
+   - Income vs. expense comparison by month
+   - Visual charts for trend analysis
+
+7. AI-POWERED INSIGHTS
+   - Analyzes last 3 months of transaction data
+   - Calculates spending patterns by category
+   - Determines net savings or losses
+   - Generates personalized financial recommendations
+   - Powered by LangChain + Groq API (Llama 3 70B model)
+
+8. DATA EXPORT
+   - Export all financial data as a ZIP file
+   - Includes CSV files for:
+     * Accounts
+     * Categories
+     * Transactions
+     * User profile
+
+TECHNICAL SPECIFICATIONS
+------------------------
+- Framework: Flask (Python)
+- Database: PostgreSQL
+- Authentication: Flask-Login
+- Password Security: PBKDF2-SHA256 hashing
+- Frontend: Bootstrap 5, Chart.js
+- AI Integration: LangChain with Groq API
+
+SECURITY FEATURES
+-----------------
+- Secure password hashing
+- Session-based authentication
+- User ownership validation on all operations
+- SQL injection protection via SQLAlchemy ORM
+- HTTP-only session cookies
+
+VALIDATION RULES
+----------------
+- Expenses cannot exceed account balance
+- Accounts with transactions cannot be deleted
+- Categories with transactions cannot be deleted
+- Password verification required for account deletion
+
+REQUIREMENTS
+------------
+- Python 3.x
+- PostgreSQL database
+- GROQ_API_KEY environment variable (for AI insights)
+- SECRET_KEY environment variable (for production)
+
+USAGE
+-----
+1. Register a new account
+2. Add your financial accounts
+3. Create custom categories (or use defaults)
+4. Record your income and expenses
+5. View dashboard for overview
+6. Check reports for detailed analysis and AI insights
+7. Export data for backup or external analysis

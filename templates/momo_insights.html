@@ -1,0 +1,166 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-brain me-2"></i>MoMo AI Insights</h2>
+    <a href="{{ url_for('momo_dashboard') }}" class="btn btn-outline-primary">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+{% if message %}
+<!-- No Data Message -->
+<div class="alert alert-info">
+    <i class="fas fa-info-circle me-2"></i>{{ message }}
+</div>
+{% else %}
+
+<!-- Summary Stats -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total Income</h6>
+                <h4 class="text-success">GHS {{ "%.2f"|format(total_income) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Total Expenses</h6>
+                <h4 class="text-danger">GHS {{ "%.2f"|format(total_expense) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Fees + Tax</h6>
+                <h4 class="text-warning">GHS {{ "%.2f"|format(total_fees + total_tax) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Transactions</h6>
+                <h4 class="text-info">{{ num_transactions }}</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- AI Insights -->
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-robot me-2"></i>AI Financial Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if insights %}
+                <div class="insights-content">
+                    {{ insights|nl2br }}
+                </div>
+                {% else %}
+                <p class="text-muted">Unable to generate insights at this time.</p>
+                {% endif %}
+            </div>
+            <div class="card-footer text-muted">
+                <small><i class="fas fa-info-circle me-1"></i>Analysis based on last 3 months of MoMo transactions</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Breakdown -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Expense Breakdown</h5>
+            </div>
+            <div class="card-body">
+                {% if expense_by_category %}
+                <canvas id="categoryChart" height="200"></canvas>
+                <hr>
+                <ul class="list-unstyled mb-0">
+                    {% for cat, amount in expense_by_category.items() %}
+                    <li class="d-flex justify-content-between mb-2">
+                        <span>{{ cat }}</span>
+                        <strong>GHS {{ "%.2f"|format(amount) }}</strong>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center">No expense data</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fee Analysis -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-coins me-2"></i>Fee & Tax Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h6 class="text-muted">Transaction Fees</h6>
+                        <h3 class="text-warning">GHS {{ "%.2f"|format(total_fees) }}</h3>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-muted">E-Levy Tax</h6>
+                        <h3 class="text-danger">GHS {{ "%.2f"|format(total_tax) }}</h3>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-muted">Total Deductions</h6>
+                        <h3 class="text-dark">GHS {{ "%.2f"|format(total_fees + total_tax) }}</h3>
+                    </div>
+                </div>
+                <hr>
+                <p class="text-muted mb-0">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    <strong>Tip:</strong> Consider consolidating smaller transactions to reduce per-transaction fees.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if expense_by_category %}
+<script>
+const ctx = document.getElementById('categoryChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ expense_by_category.keys()|list|tojson }},
+        datasets: [{
+            data: {{ expense_by_category.values()|list|tojson }},
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                '#FF9F40', '#FF6384', '#C9CBCF', '#7BC225', '#B8860B'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

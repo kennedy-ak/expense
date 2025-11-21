@@ -1,0 +1,66 @@
+{% extends 'layout.html' %}
+
+{% block title %}Import History{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="bi bi-clock-history"></i> Import History</h4>
+                    <a href="{{ url_for('import_statement') }}" class="btn btn-primary btn-sm">
+                        <i class="bi bi-upload"></i> New Import
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if imports %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Filename</th>
+                                    <th>Total</th>
+                                    <th>Imported</th>
+                                    <th>Failed</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for imp in imports %}
+                                <tr>
+                                    <td>{{ imp.import_date.strftime('%d %b %Y %H:%M') }}</td>
+                                    <td>{{ imp.filename }}</td>
+                                    <td>{{ imp.total_transactions }}</td>
+                                    <td class="text-success">{{ imp.successful_imports }}</td>
+                                    <td class="text-danger">{{ imp.failed_imports }}</td>
+                                    <td>
+                                        {% if imp.status == 'completed' %}
+                                        <span class="badge bg-success">Completed</span>
+                                        {% elif imp.status == 'failed' %}
+                                        <span class="badge bg-danger">Failed</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">{{ imp.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <p class="mt-3 text-muted">No imports yet</p>
+                        <a href="{{ url_for('import_statement') }}" class="btn btn-primary">
+                            Import Your First Statement
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

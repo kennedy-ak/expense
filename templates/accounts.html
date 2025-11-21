@@ -29,7 +29,7 @@
                             <tr>
                                 <td>{{ account.name }}</td>
                                 <td class="text-end {% if account.balance > 0 %}text-success{% elif account.balance < 0 %}text-danger{% endif %}">
-                                    ${{ account.balance|round(2) }}
+                                     {{ CURRENCIES[current_user.currency].symbol }}{{ account.balance|round(2) }}
                                 </td>
                                 <td class="text-center">
                                     <a href="{{ url_for('update_account', account_id=account.id) }}" class="btn btn-sm btn-outline-primary me-1">
@@ -78,7 +78,7 @@
                                         {% set total = total + account.balance %}
                                     {% endfor %}
                                     <span class="{% if total > 0 %}text-success{% elif total < 0 %}text-danger{% endif %}">
-                                        ${{ total|round(2) }}
+                                        {{ CURRENCIES[current_user.currency].symbol }}{{ total|round(2) }}
                                     </span>
                                 </th>
                                 <th></th>
